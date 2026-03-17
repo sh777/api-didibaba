@@ -69,11 +69,11 @@ def capture_chart(
         ])
 
         page = context.new_page()
-        page.goto(url, wait_until="networkidle", timeout=30000)
+        page.goto(url, wait_until="load", timeout=60000)
 
         # Wait for the chart canvas to render
-        page.wait_for_selector("canvas", timeout=15000)
-        page.wait_for_timeout(3000)  # extra settle time
+        page.wait_for_selector("canvas", timeout=20000)
+        page.wait_for_timeout(4000)  # extra settle time
 
         page.screenshot(path=path, clip={"x": 0, "y": 0, "width": width, "height": height})
         browser.close()
