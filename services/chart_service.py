@@ -224,11 +224,42 @@ class BrowserPool:
                 await reconnect.first.click()
                 await page.wait_for_timeout(3000)
 
+            # Short settle wait for rendering
             await page.wait_for_timeout(3000)
+
+            # Hide TradingView top navigation bar (header with user avatar etc.)
+            await page.evaluate("""
+                () => {
+                    const selectors = [
+                        'header',
+                        '[class*="header-"]',
+                        '[id*="header"]',
+                        'div[data-name="header"]',
+                        '.tv-header',
+                        '#tv-header',
+                    ];
+                    for (const sel of selectors) {
+                        document.querySelectorAll(sel).forEach(el => {
+                            el.style.setProperty('display', 'none', 'important');
+                        });
+                    }
+                }
+            """)
+
+            # Get actual header height to clip it out (fallback: 0)
+            header_height = await page.evaluate("""
+                () => {
+                    const header = document.querySelector('header') ||
+                                   document.querySelector('[class*="header-"]') ||
+                                   document.querySelector('[data-name="header"]');
+                    return header ? header.getBoundingClientRect().height : 0;
+                }
+            """)
+            top_offset = int(header_height) if header_height else 0
 
             await page.screenshot(
                 path=path,
-                clip={"x": 0, "y": 0, "width": width, "height": height},
+                clip={"x": 0, "y": top_offset, "width": width, "height": height - top_offset},
             )
 
         return path
