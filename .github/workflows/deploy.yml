@@ -25,10 +25,12 @@ jobs:
         TRADINGVIEW_SESSION_ID_SIGN: op://didibaba.ai/api-didibaba/TRADINGVIEW_SESSION_ID_SIGN
         ECS_SSH_KEY: op://didibaba.ai/api-didibaba/ECS_SSH_KEY
 
-    - name: Setup SSH
-      uses: webfactory/ssh-agent@v0.7.0
-      with:
-        ssh-private-key: ${{ env.ECS_SSH_KEY }}
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "$ECS_SSH_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H $ECS_HOST >> ~/.ssh/known_hosts
 
     - name: Sync code to server
       run: |
@@ -37,12 +39,12 @@ jobs:
           --exclude='__pycache__' \
           --exclude='*.pyc' \
           --exclude='.env' \
-          -e "ssh -o StrictHostKeyChecking=no" \
+          -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
           ./ ${{ env.ECS_USER }}@${{ env.ECS_HOST }}:/opt/api-didibaba/
 
     - name: Deploy on server
       run: |
-        ssh -o StrictHostKeyChecking=no ${{ env.ECS_USER }}@${{ env.ECS_HOST }} bash << REMOTE
+        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ env.ECS_USER }}@${{ env.ECS_HOST }} bash << REMOTE
         set -e
 
         echo "⚙️ Writing .env..."
