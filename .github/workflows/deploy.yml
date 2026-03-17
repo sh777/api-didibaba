@@ -23,11 +23,12 @@ jobs:
         OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
         TRADINGVIEW_SESSION_ID: op://didibaba.ai/api-didibaba/TRADINGVIEW_SESSION_ID
         TRADINGVIEW_SESSION_ID_SIGN: op://didibaba.ai/api-didibaba/TRADINGVIEW_SESSION_ID_SIGN
+        ECS_SSH_KEY: op://didibaba.ai/api-didibaba/ECS_SSH_KEY
 
     - name: Setup SSH
       uses: webfactory/ssh-agent@v0.7.0
       with:
-        ssh-private-key: ${{ secrets.ECS_SSH_KEY }}
+        ssh-private-key: ${{ env.ECS_SSH_KEY }}
 
     - name: Sync code to server
       run: |
