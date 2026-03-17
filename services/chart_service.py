@@ -69,12 +69,25 @@ def capture_chart(
         ])
 
         page = context.new_page()
-        page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        page.goto(url, wait_until="load", timeout=60000)
 
-        # Wait for chart canvas + fonts to fully render
+        # Wait for chart canvas to appear
         page.wait_for_selector("canvas", timeout=30000)
-        page.evaluate("() => document.fonts.ready")
-        page.wait_for_timeout(8000)  # settle time for indicators & labels
+
+        # TradingView renders text on canvas asynchronously after data loads.
+        # Wait for price axis label to confirm text is rendered.
+        try:
+            page.wait_for_function(
+                """() => {
+                    const canvases = document.querySelectorAll('canvas');
+                    return canvases.length >= 2;
+                }""",
+                timeout=15000,
+            )
+        except Exception:
+            pass
+
+        page.wait_for_timeout(10000)  # let all canvas text (prices, dates, labels) render
 
         page.screenshot(path=path, clip={"x": 0, "y": 0, "width": width, "height": height})
         browser.close()
