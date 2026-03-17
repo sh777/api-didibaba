@@ -98,7 +98,7 @@ jobs:
 
         ln -sf /etc/nginx/sites-available/api-didibaba /etc/nginx/sites-enabled/api-didibaba
         rm -f /etc/nginx/sites-enabled/default
-        nginx -t && systemctl reload nginx
+        nginx -t && (systemctl reload nginx 2>/dev/null || systemctl start nginx)
 
         # SSL
         certbot --nginx -d api.didibaba.ai \
