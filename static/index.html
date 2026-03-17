@@ -381,7 +381,6 @@
     <div class="nav-section">Reference</div>
     <ul>
       <li><a href="#intervals">Intervals</a></li>
-      <li><a href="#chart-types">Chart Types</a></li>
       <li><a href="#examples">Examples</a></li>
       <li><a href="#errors">Error Codes</a></li>
     </ul>
@@ -453,18 +452,11 @@
               <td>Chart time interval. See <a href="#intervals">Intervals</a> for valid values.</td>
             </tr>
             <tr>
-              <td><code>chart_type</code></td>
-              <td><code>string</code></td>
-              <td><span class="optional">optional</span></td>
-              <td><span class="default">default</span></td>
-              <td>Preset chart layout. One of <code>default</code>, <code>btc</code>, <code>fabio</code>. Ignored if <code>chart_id</code> is set. See <a href="#chart-types">Chart Types</a>.</td>
-            </tr>
-            <tr>
               <td><code>chart_id</code></td>
               <td><code>string</code></td>
               <td><span class="optional">optional</span></td>
               <td>—</td>
-              <td>TradingView saved layout ID (e.g. <code>Pmtyn6fy</code>). <strong>Takes priority over <code>chart_type</code></strong> when provided. Use this to reference any custom saved layout.</td>
+              <td>TradingView saved layout ID (e.g. <code>Pmtyn6fy</code>). Use this to reference a custom saved layout. If omitted, the default layout is used.</td>
             </tr>
             <tr>
               <td><code>width</code></td>
@@ -543,40 +535,14 @@
       </tbody>
     </table>
 
-    <!-- Chart Types -->
-    <h2 id="chart-types">Chart Types</h2>
-    <p>Preset chart layouts available via the <code>chart_type</code> parameter. For full control, use <code>chart_id</code> to reference any TradingView saved layout directly.</p>
-
-    <div class="chart-grid">
-      <div class="chart-card">
-        <h4>default</h4>
-        <p>General purpose chart. Used for stocks, indices, and most assets.</p>
-        <code>chart_type=default</code>
-      </div>
-      <div class="chart-card">
-        <h4>btc</h4>
-        <p>Bitcoin-optimized layout with crypto-specific indicators.</p>
-        <code>chart_type=btc</code>
-      </div>
-      <div class="chart-card">
-        <h4>fabio</h4>
-        <p>Custom strategy layout (Fabio Trader).</p>
-        <code>chart_type=fabio</code>
-      </div>
-    </div>
-
-    <div class="callout">
-      <strong>Using custom layouts:</strong> Find the layout ID in your TradingView chart URL — e.g. <code>tradingview.com/chart/<strong>Pmtyn6fy</strong>/</code> — and pass it as <code>chart_id=Pmtyn6fy</code>.
-    </div>
-
     <!-- Examples -->
     <h2 id="examples">Examples 🧪</h2>
 
-    <h3>AAPL daily chart (default layout)</h3>
+    <h3>AAPL daily chart</h3>
     <pre><code><span class="method-get">GET</span> <span class="url">https://api.didibaba.ai/chart/image?symbol=NASDAQ:AAPL&interval=1D</span></code></pre>
 
-    <h3>BTC weekly chart (btc layout)</h3>
-    <pre><code><span class="method-get">GET</span> <span class="url">https://api.didibaba.ai/chart/image?symbol=BINANCE:BTCUSDT&interval=1W&chart_type=btc</span></code></pre>
+    <h3>BTC weekly chart</h3>
+    <pre><code><span class="method-get">GET</span> <span class="url">https://api.didibaba.ai/chart/image?symbol=BINANCE:BTCUSDT&interval=1W</span></code></pre>
 
     <h3>A-share (600519 茅台) daily chart</h3>
     <pre><code><span class="method-get">GET</span> <span class="url">https://api.didibaba.ai/chart/image?symbol=SSE:600519&interval=1D</span></code></pre>
