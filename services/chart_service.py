@@ -245,7 +245,7 @@ class BrowserPool:
             from PIL import Image
             img = Image.open(path)
             img_w, img_h = img.size
-            cropped = img.crop((0, 32, img_w, img_h))
+            cropped = img.crop((0, 50, img_w, img_h))
             cropped.save(path)
         except Exception as e:
             logger.warning(f"PIL crop failed (non-fatal): {e}")
