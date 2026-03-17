@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DiDiBaBa API Documentation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f1117;
+      color: #e1e4e8;
+      line-height: 1.6;
+    }
+
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    .layout { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    nav {
+      width: 260px;
+      flex-shrink: 0;
+      background: #161b22;
+      border-right: 1px solid #30363d;
+      padding: 24px 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .nav-logo {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid #30363d;
+      margin-bottom: 16px;
+    }
+
+    .nav-logo h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #f0f6fc;
+      letter-spacing: -0.3px;
+    }
+
+    .nav-logo span { color: #58a6ff; }
+
+    .nav-section {
+      padding: 8px 20px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    nav ul { list-style: none; margin-bottom: 12px; }
+
+    nav ul li a {
+      display: block;
+      padding: 6px 20px;
+      font-size: 14px;
+      color: #c9d1d9;
+      transition: background 0.15s, color 0.15s;
+      border-left: 2px solid transparent;
+    }
+
+    nav ul li a:hover {
+      background: #21262d;
+      color: #f0f6fc;
+      text-decoration: none;
+      border-left-color: #58a6ff;
+    }
+
+    /* Main content */
+    main {
+      flex: 1;
+      max-width: 900px;
+      padding: 48px 40px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    h2 {
+      font-size: 22px;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin: 48px 0 16px;
+      padding-top: 48px;
+      border-top: 1px solid #30363d;
+      letter-spacing: -0.3px;
+    }
+
+    h2:first-of-type { margin-top: 32px; padding-top: 0; border-top: none; }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e1e4e8;
+      margin: 24px 0 10px;
+    }
+
+    p { margin-bottom: 14px; color: #c9d1d9; font-size: 15px; }
+
+    /* Code */
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px;
+      background: #21262d;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #79c0ff;
+    }
+
+    pre {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px 24px;
+      overflow-x: auto;
+      margin: 14px 0 20px;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      color: #e1e4e8;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .comment { color: #8b949e; }
+    .key { color: #79c0ff; }
+    .string { color: #a5d6ff; }
+    .url { color: #56d364; }
+    .method-get { color: #3fb950; font-weight: 700; }
+    .method-post { color: #d29922; font-weight: 700; }
+
+    /* Endpoint block */
+    .endpoint {
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 20px 0 32px;
+    }
+
+    .endpoint-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .badge {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 5px;
+      text-transform: uppercase;
+    }
+
+    .badge-get { background: #0d3021; color: #3fb950; border: 1px solid #3fb950; }
+    .badge-post { background: #2d1b00; color: #d29922; border: 1px solid #d29922; }
+
+    .endpoint-path {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 15px;
+      color: #f0f6fc;
+      font-weight: 600;
+    }
+
+    .endpoint-desc {
+      font-size: 14px;
+      color: #8b949e;
+    }
+
+    .endpoint-body { padding: 20px; }
+
+    /* Parameter table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin: 12px 0;
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 14px;
+      background: #21262d;
+      color: #8b949e;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #30363d;
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #21262d;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    td code { font-size: 12px; }
+
+    .required {
+      font-size: 11px;
+      font-weight: 700;
+      color: #f85149;
+      text-transform: uppercase;
+    }
+
+    .optional {
+      font-size: 11px;
+      font-weight: 600;
+      color: #8b949e;
+    }
+
+    .default {
+      font-size: 12px;
+      color: #56d364;
+    }
+
+    /* Response block */
+    .response-200 {
+      display: inline-block;
+      padding: 3px 10px;
+      background: #0d3021;
+      color: #3fb950;
+      border: 1px solid #3fb950;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: monospace;
+      margin-bottom: 8px;
+    }
+
+    .response-4xx {
+      display: inline-block;
+      padding: 3px 10px;
+      background: #2d1b00;
+      color: #d29922;
+      border: 1px solid #d29922;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: monospace;
+      margin-right: 6px;
+      margin-bottom: 8px;
+    }
+
+    .response-5xx {
+      display: inline-block;
+      padding: 3px 10px;
+      background: #3d1212;
+      color: #f85149;
+      border: 1px solid #f85149;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: monospace;
+      margin-right: 6px;
+      margin-bottom: 8px;
+    }
+
+    /* Callout */
+    .callout {
+      background: #0d1f35;
+      border-left: 4px solid #1f6feb;
+      border-radius: 0 6px 6px 0;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: 14px;
+      color: #c9d1d9;
+    }
+
+    .callout.warning {
+      background: #2d1b00;
+      border-left-color: #d29922;
+    }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #0d1f35 0%, #161b22 100%);
+      border: 1px solid #1f6feb;
+      border-radius: 12px;
+      padding: 32px 36px;
+      margin-bottom: 40px;
+    }
+
+    .hero p {
+      font-size: 16px;
+      color: #c9d1d9;
+      max-width: 620px;
+      margin-bottom: 20px;
+    }
+
+    .base-url {
+      display: inline-block;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-family: monospace;
+      font-size: 15px;
+      color: #56d364;
+    }
+
+    /* Chart types */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .chart-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .chart-card h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 4px;
+    }
+
+    .chart-card p {
+      font-size: 12px;
+      color: #8b949e;
+      margin-bottom: 8px;
+    }
+
+    .chart-card code { font-size: 11px; }
+
+    /* Section anchor offset */
+    [id] { scroll-margin-top: 20px; }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Sidebar Navigation -->
+  <nav>
+    <div class="nav-logo">
+      <h2>🐼 <span>DiDiBaBa</span> API</h2>
+    </div>
+
+    <div class="nav-section">Getting Started</div>
+    <ul>
+      <li><a href="#introduction">Introduction</a></li>
+      <li><a href="#base-url">Base URL</a></li>
+      <li><a href="#authentication">Authentication</a></li>
+    </ul>
+
+    <div class="nav-section">Endpoints</div>
+    <ul>
+      <li><a href="#chart-image">Chart Image</a></li>
+      <li><a href="#health">Health Check</a></li>
+    </ul>
+
+    <div class="nav-section">Reference</div>
+    <ul>
+      <li><a href="#intervals">Intervals</a></li>
+      <li><a href="#chart-types">Chart Types</a></li>
+      <li><a href="#examples">Examples</a></li>
+      <li><a href="#errors">Error Codes</a></li>
+    </ul>
+  </nav>
+
+  <!-- Main Content -->
+  <main>
+
+    <div class="hero">
+      <h1>DiDiBaBa API</h1>
+      <p>Generate TradingView chart screenshots via a simple REST API. Supports stocks, crypto, forex, and any TradingView symbol.</p>
+      <div class="base-url">https://api.didibaba.ai</div>
+    </div>
+
+    <!-- Introduction -->
+    <h2 id="introduction">Introduction 👋</h2>
+    <p>Welcome to the DiDiBaBa API. This service provides programmatic access to TradingView chart screenshots for use in trading bots, analysis tools, and automated reporting.</p>
+
+    <p>The API is built on <strong>FastAPI</strong> and uses <strong>Playwright + Chromium</strong> to render live TradingView charts with your saved layouts, indicators, and themes intact.</p>
+
+    <div class="callout">
+      Interactive API docs are also available at <a href="/docs">/docs</a> (Swagger UI) and <a href="/redoc">/redoc</a> (ReDoc).
+    </div>
+
+    <!-- Base URL -->
+    <h2 id="base-url">Base URL 🔗</h2>
+    <pre><code>https://api.didibaba.ai</code></pre>
+
+    <!-- Authentication -->
+    <h2 id="authentication">Authentication 🔒</h2>
+    <p>This is a private API. No public API key is required — access is controlled at the network/deployment level. If you need access, contact the DiDiBaBa team.</p>
+
+    <!-- Chart Image Endpoint -->
+    <h2 id="chart-image">GET /chart/image</h2>
+    <p>Generate a TradingView chart screenshot and return it as a PNG image.</p>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="badge badge-get">GET</span>
+        <span class="endpoint-path">/chart/image</span>
+        <span class="endpoint-desc">Returns a PNG chart image</span>
+      </div>
+      <div class="endpoint-body">
+
+        <h3>Query Parameters</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Type</th>
+              <th>Required</th>
+              <th>Default</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>symbol</code></td>
+              <td><code>string</code></td>
+              <td><span class="required">required</span></td>
+              <td>—</td>
+              <td>TradingView ticker symbol. e.g. <code>NASDAQ:AAPL</code>, <code>BINANCE:BTCUSDT</code>, <code>SSE:600519</code>. Short forms like <code>AAPL</code> or <code>BTC</code> are also accepted and auto-normalized.</td>
+            </tr>
+            <tr>
+              <td><code>interval</code></td>
+              <td><code>string</code></td>
+              <td><span class="optional">optional</span></td>
+              <td><span class="default">1D</span></td>
+              <td>Chart time interval. See <a href="#intervals">Intervals</a> for valid values.</td>
+            </tr>
+            <tr>
+              <td><code>chart_type</code></td>
+              <td><code>string</code></td>
+              <td><span class="optional">optional</span></td>
+              <td><span class="default">default</span></td>
+              <td>Preset chart layout. One of <code>default</code>, <code>btc</code>, <code>fabio</code>. Ignored if <code>chart_id</code> is set. See <a href="#chart-types">Chart Types</a>.</td>
+            </tr>
+            <tr>
+              <td><code>chart_id</code></td>
+              <td><code>string</code></td>
+              <td><span class="optional">optional</span></td>
+              <td>—</td>
+              <td>TradingView saved layout ID (e.g. <code>Pmtyn6fy</code>). <strong>Takes priority over <code>chart_type</code></strong> when provided. Use this to reference any custom saved layout.</td>
+            </tr>
+            <tr>
+              <td><code>width</code></td>
+              <td><code>integer</code></td>
+              <td><span class="optional">optional</span></td>
+              <td><span class="default">1920</span></td>
+              <td>Output image width in pixels. Range: 400–3840.</td>
+            </tr>
+            <tr>
+              <td><code>height</code></td>
+              <td><code>integer</code></td>
+              <td><span class="optional">optional</span></td>
+              <td><span class="default">1080</span></td>
+              <td>Output image height in pixels. Range: 300–2160.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Responses</h3>
+        <div>
+          <span class="response-200">200 OK</span>
+          <p>Returns a PNG image (<code>image/png</code>). The <code>Content-Disposition</code> header includes a filename like <code>AAPL-1D.png</code>.</p>
+        </div>
+        <div>
+          <span class="response-4xx">400 Bad Request</span>
+          <p>Invalid parameter value (e.g. unsupported interval).</p>
+        </div>
+        <div>
+          <span class="response-5xx">500 Internal Server Error</span>
+          <p>Chart generation failed (TradingView session issue, Playwright timeout, etc.).</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Health Endpoint -->
+    <h2 id="health">GET /health</h2>
+    <p>Returns service health status. Use this to check if the API is running.</p>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="badge badge-get">GET</span>
+        <span class="endpoint-path">/health</span>
+        <span class="endpoint-desc">Health check</span>
+      </div>
+      <div class="endpoint-body">
+        <h3>Response</h3>
+        <pre><code><span class="comment">// 200 OK</span>
+{
+  <span class="key">"status"</span>: <span class="string">"ok"</span>
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- Intervals -->
+    <h2 id="intervals">Intervals</h2>
+    <p>The following interval values are supported for the <code>interval</code> parameter:</p>
+
+    <table>
+      <thead>
+        <tr><th>Value</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>1m</code></td><td>1 minute</td></tr>
+        <tr><td><code>5m</code></td><td>5 minutes</td></tr>
+        <tr><td><code>15m</code></td><td>15 minutes</td></tr>
+        <tr><td><code>30m</code></td><td>30 minutes</td></tr>
+        <tr><td><code>1h</code></td><td>1 hour</td></tr>
+        <tr><td><code>2h</code></td><td>2 hours</td></tr>
+        <tr><td><code>4h</code></td><td>4 hours</td></tr>
+        <tr><td><code>6h</code></td><td>6 hours</td></tr>
+        <tr><td><code>12h</code></td><td>12 hours</td></tr>
+        <tr><td><code>1D</code></td><td>1 day <em>(default)</em></td></tr>
+        <tr><td><code>1W</code></td><td>1 week</td></tr>
+        <tr><td><code>1M</code></td><td>1 month</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Chart Types -->
+    <h2 id="chart-types">Chart Types</h2>
+    <p>Preset chart layouts available via the <code>chart_type</code> parameter. For full control, use <code>chart_id</code> to reference any TradingView saved layout directly.</p>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h4>default</h4>
+        <p>General purpose chart. Used for stocks, indices, and most assets.</p>
+        <code>chart_type=default</code>
+      </div>
+      <div class="chart-card">
+        <h4>btc</h4>
+        <p>Bitcoin-optimized layout with crypto-specific indicators.</p>
+        <code>chart_type=btc</code>
+      </div>
+      <div class="chart-card">
+        <h4>fabio</h4>
+        <p>Custom strategy layout (Fabio Trader).</p>
+        <code>chart_type=fabio</code>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Using custom layouts:</strong> Find the layout ID in your TradingView chart URL — e.g. <code>tradingview.com/chart/<strong>Pmtyn6fy</strong>/</code> — and pass it as <code>chart_id=Pmtyn6fy</code>.
+    </div>
+
+    <!-- Examples -->
+    <h2 id="examples">Examples 🧪</h2>
+
+    <h3>AAPL daily chart (default layout)</h3>
+    <pre><code><span class="method-get">GET</span> <span class="url">https://api.didibaba.ai/chart/image?symbol=NASDAQ:AAPL&interval=1D</span></code></pre>
+
+    <h3>BTC weekly chart (btc layout)</h3>
+    <pre><code><span class="method-get">GET</span> <span class="url">https://api.didibaba.ai/chart/image?symbol=BINANCE:BTCUSDT&interval=1W&chart_type=btc</span></code></pre>
+
+    <h3>A-share (600519 茅台) daily chart</h3>
+    <pre><code><span class="method-get">GET</span> <span class="url">https://api.didibaba.ai/chart/image?symbol=SSE:600519&interval=1D</span></code></pre>
+
+    <h3>Custom layout by chart_id</h3>
+    <pre><code><span class="method-get">GET</span> <span class="url">https://api.didibaba.ai/chart/image?symbol=NASDAQ:TSLA&interval=4h&chart_id=dVrMW7wa</span></code></pre>
+
+    <h3>cURL</h3>
+    <pre><code>curl -o chart.png \
+  "https://api.didibaba.ai/chart/image?symbol=NASDAQ:AAPL&interval=1D"</code></pre>
+
+    <h3>Python</h3>
+    <pre><code>import requests
+
+resp = requests.get(
+    "https://api.didibaba.ai/chart/image",
+    params={
+        "symbol": "NASDAQ:AAPL",
+        "interval": "1D",
+        "width": 1920,
+        "height": 1080,
+    },
+    timeout=90,
+)
+resp.raise_for_status()
+
+with open("chart.png", "wb") as f:
+    f.write(resp.content)</code></pre>
+
+    <h3>JavaScript (fetch)</h3>
+    <pre><code>const params = new URLSearchParams({
+  symbol: "BINANCE:BTCUSDT",
+  interval: "1D",
+  chart_type: "btc",
+});
+
+const res = await fetch(`https://api.didibaba.ai/chart/image?${params}`);
+const blob = await res.blob();
+const url = URL.createObjectURL(blob);
+// use url as <img src> or download it</code></pre>
+
+    <!-- Errors -->
+    <h2 id="errors">Error Codes</h2>
+    <table>
+      <thead>
+        <tr><th>Status</th><th>Meaning</th><th>Common Cause</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>200</code></td>
+          <td>OK</td>
+          <td>PNG image returned successfully.</td>
+        </tr>
+        <tr>
+          <td><code>400</code></td>
+          <td>Bad Request</td>
+          <td>Invalid <code>interval</code> or parameter out of range.</td>
+        </tr>
+        <tr>
+          <td><code>422</code></td>
+          <td>Unprocessable Entity</td>
+          <td>Missing required parameter (<code>symbol</code>).</td>
+        </tr>
+        <tr>
+          <td><code>500</code></td>
+          <td>Internal Server Error</td>
+          <td>TradingView session expired, Playwright timeout, or rendering error.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout warning">
+      <strong>Timeout note:</strong> Chart rendering can take up to 60 seconds for complex layouts or slow network conditions. Set your HTTP client timeout to at least <code>90s</code>.
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>
