@@ -51,7 +51,11 @@ class BrowserPool:
         self._cookies: dict = {}
 
     async def start(self):
-        """Initialize the pool. Called once at app startup."""
+        """
+        Initialize the pool. Called once at app startup.
+        Browser launches immediately; page warm-up runs in background
+        so /health responds right away.
+        """
         from playwright.async_api import async_playwright
 
         self._cookies = get_session()
@@ -62,12 +66,39 @@ class BrowserPool:
         )
 
         self._queue = asyncio.Queue()
-        for i in range(self._size):
-            page = await self._make_page(warm=True)
-            await self._queue.put(page)
-            logger.info(f"BrowserPool: page {i + 1}/{self._size} ready")
 
-        logger.info(f"BrowserPool started with {self._size} pages")
+        # Seed queue with bare (not warm) pages immediately so health check passes
+        for _ in range(self._size):
+            page = await self._make_page(warm=False)
+            await self._queue.put(page)
+
+        logger.info(f"BrowserPool: {self._size} pages ready (warming up in background)")
+
+        # Warm up in background — doesn't block startup
+        asyncio.create_task(self._warm_all())
+
+    async def _warm_all(self):
+        """Navigate all pooled pages to TradingView in background."""
+        pages = []
+        for _ in range(self._size):
+            pages.append(await self._queue.get())
+
+        for i, page in enumerate(pages):
+            try:
+                await page.goto(
+                    f"{TV_BASE}/{CHART_ID_DEFAULT}/",
+                    wait_until="load",
+                    timeout=60000,
+                )
+                await page.wait_for_selector("canvas", timeout=30000)
+                await page.wait_for_timeout(3000)
+                logger.info(f"BrowserPool: page {i + 1}/{self._size} warmed")
+            except Exception as e:
+                logger.warning(f"BrowserPool: warm page {i + 1} failed (non-fatal): {e}")
+            finally:
+                await self._queue.put(page)
+
+        logger.info(f"BrowserPool: all {self._size} pages warmed")
 
     async def stop(self):
         """Cleanup on app shutdown."""
