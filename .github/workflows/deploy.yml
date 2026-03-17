@@ -28,9 +28,11 @@ jobs:
     - name: Setup SSH key
       run: |
         mkdir -p ~/.ssh
-        echo "$ECS_SSH_KEY" > ~/.ssh/id_rsa
+        echo "$ECS_SSH_KEY" | sed 's/\\n/\n/g' > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H $ECS_HOST >> ~/.ssh/known_hosts
+        # debug: check key format
+        head -1 ~/.ssh/id_rsa
 
     - name: Sync code to server
       run: |
