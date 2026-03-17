@@ -65,7 +65,7 @@ jobs:
             -p 8000:8000 \
             api-didibaba
 
-          # Wait for api-didibaba to be healthy (pool start is non-blocking, but give uvicorn time)
+          # Wait for api-didibaba to be healthy (pool startup is non-blocking)
           for i in $(seq 1 12); do
             if curl -sf http://localhost:8000/health; then
               echo "api-didibaba healthy"
@@ -76,34 +76,20 @@ jobs:
           done
           curl -sf http://localhost:8000/health || (docker logs api-didibaba --tail 30; exit 1)
 
-          # Find nginx container (port 80) — docker ps Ports format: "0.0.0.0:80->80/tcp"
+          # Find nginx container (port 80)
           NGINX_CTR=$(docker ps --format '{{.Names}} {{.Ports}}' | grep '0\.0\.0\.0:80->' | awk '{print $1}' | head -1) || true
           echo "nginx container: $NGINX_CTR"
 
           if [ -n "$NGINX_CTR" ]; then
-            # Connect api-didibaba to the same network as nginx so we can proxy by container name
+            # Connect api-didibaba to the same network as nginx
             NGINX_NET=$(docker inspect "$NGINX_CTR" --format='{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' | awk '{print $1}')
             echo "nginx network: $NGINX_NET"
             docker network connect "$NGINX_NET" api-didibaba 2>/dev/null || true
 
-            # Write nginx conf to the persistent volume mount (survives container rebuilds)
+            # Write nginx conf to persistent volume mount (use printf to avoid heredoc in heredoc)
             mkdir -p /opt/nginx-extra
-            cat > /opt/nginx-extra/api-didibaba.conf << 'NGINXEOF'
-server {
-    listen 80;
-    server_name api.didibaba.ai;
-    location / {
-        proxy_pass http://api-didibaba:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_connect_timeout 10s;
-        proxy_send_timeout 300s;
-        proxy_read_timeout 300s;
-    }
-}
-NGINXEOF
+            printf 'server {\n    listen 80;\n    server_name api.didibaba.ai;\n    location / {\n        proxy_pass http://api-didibaba:8000;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n        proxy_connect_timeout 10s;\n        proxy_send_timeout 300s;\n        proxy_read_timeout 300s;\n    }\n}\n' \
+              > /opt/nginx-extra/api-didibaba.conf
             docker exec "$NGINX_CTR" sh -c "nginx -t && nginx -s reload"
             echo "nginx reloaded"
           else
