@@ -33,12 +33,12 @@ jobs:
           --exclude='*.pyc' \
           --exclude='.env' \
           -e "ssh -o StrictHostKeyChecking=no" \
-          ./ root@45.77.30.170:/opt/api-didibaba/
+          ./ root@47.84.3.106:/opt/api-didibaba/
 
     - name: Deploy on server
       run: |
         export SSHPASS="$SSH_ROOT_PASSWORD"
-        sshpass -e ssh -o StrictHostKeyChecking=no root@45.77.30.170 bash << REMOTE
+        sshpass -e ssh -o StrictHostKeyChecking=no root@47.84.3.106 bash << REMOTE
         set -e
 
         echo "⚙️ Writing .env..."
