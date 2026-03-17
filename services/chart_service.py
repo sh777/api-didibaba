@@ -224,41 +224,20 @@ class BrowserPool:
                 await reconnect.first.click()
                 await page.wait_for_timeout(3000)
 
-            # Settle wait — also lets transient overlays (login status toasts) disappear
-            await page.wait_for_timeout(5000)
+            # Wait for chart to fully render
+            await page.wait_for_timeout(3000)
 
-            # Measure toolbar height BEFORE hiding (display:none returns 0)
-            top_offset = await page.evaluate("""
-                () => {
-                    const el = document.querySelector('.layout__area--top');
-                    return el ? Math.ceil(el.getBoundingClientRect().height) : 38;
-                }
-            """) or 38
-
-            # Now hide it
-            await page.evaluate("""
-                () => {
-                    const el = document.querySelector('.layout__area--top');
-                    if (el) el.style.setProperty('display', 'none', 'important');
-                }
-            """)
-
-            await page.screenshot(
-                path=path,
-                clip={"x": 0, "y": top_offset, "width": width, "height": height - top_offset},
-            )
-
-        # Crop out the OHLC info bar at the top (canvas-rendered, ~40px, contains
-        # "Logged in as" and "Active layout" watermark text)
-        try:
-            from PIL import Image
-            img = Image.open(path)
-            img_w, img_h = img.size
-            crop_top = 40  # height of the OHLC/status bar
-            cropped = img.crop((0, crop_top, img_w, img_h))
-            cropped.save(path)
-        except Exception as e:
-            logger.warning(f"PIL crop failed (non-fatal): {e}")
+            # Screenshot only the chart area (excludes top toolbar, left toolbar, right panel)
+            # .layout__area--center is the pure chart canvas area — stable, no hash suffix
+            chart_el = page.locator(".layout__area--center")
+            if await chart_el.count() > 0:
+                await chart_el.screenshot(path=path)
+            else:
+                # Fallback: full page screenshot
+                await page.screenshot(
+                    path=path,
+                    clip={"x": 0, "y": 0, "width": width, "height": height},
+                )
 
         return path
 
