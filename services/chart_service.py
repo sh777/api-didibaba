@@ -224,8 +224,8 @@ class BrowserPool:
                 await reconnect.first.click()
                 await page.wait_for_timeout(3000)
 
-            # Short settle wait for rendering
-            await page.wait_for_timeout(3000)
+            # Settle wait — also lets transient overlays (login status toasts) disappear
+            await page.wait_for_timeout(5000)
 
             # Measure toolbar height BEFORE hiding (display:none returns 0)
             top_offset = await page.evaluate("""
