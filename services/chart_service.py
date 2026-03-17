@@ -227,21 +227,21 @@ class BrowserPool:
             # Short settle wait for rendering
             await page.wait_for_timeout(3000)
 
-            # Hide TradingView top toolbar (.layout__area--top is stable, no hash suffix)
+            # Measure toolbar height BEFORE hiding (display:none returns 0)
+            top_offset = await page.evaluate("""
+                () => {
+                    const el = document.querySelector('.layout__area--top');
+                    return el ? Math.ceil(el.getBoundingClientRect().height) : 38;
+                }
+            """) or 38
+
+            # Now hide it
             await page.evaluate("""
                 () => {
                     const el = document.querySelector('.layout__area--top');
                     if (el) el.style.setProperty('display', 'none', 'important');
                 }
             """)
-
-            # Measure how tall the hidden toolbar was (usually 38px), clip it out
-            top_offset = await page.evaluate("""
-                () => {
-                    const el = document.querySelector('.layout__area--top');
-                    return el ? Math.ceil(el.getBoundingClientRect().height) : 0;
-                }
-            """) or 0
 
             await page.screenshot(
                 path=path,
