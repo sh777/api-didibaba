@@ -18,8 +18,8 @@ jobs:
       env:
         OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
         SSH_ROOT_PASSWORD: op://didibaba.ai/api-didibaba/SSH_ROOT_PASSWORD
-        TRADINGVIEW_USERNAME: op://didibaba.ai/api-didibaba/TRADINGVIEW_USERNAME
-        TRADINGVIEW_PASSWORD: op://didibaba.ai/api-didibaba/TRADINGVIEW_PASSWORD
+        TRADINGVIEW_SESSION_ID: op://didibaba.ai/api-didibaba/TRADINGVIEW_SESSION_ID
+        TRADINGVIEW_SESSION_ID_SIGN: op://didibaba.ai/api-didibaba/TRADINGVIEW_SESSION_ID_SIGN
 
     - name: Install sshpass
       run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
@@ -43,8 +43,8 @@ jobs:
 
         echo "⚙️ Writing .env..."
         cat > /opt/api-didibaba/.env <<EOF
-        TRADINGVIEW_USERNAME=${TRADINGVIEW_USERNAME}
-        TRADINGVIEW_PASSWORD=${TRADINGVIEW_PASSWORD}
+        TRADINGVIEW_SESSION_ID=${TRADINGVIEW_SESSION_ID}
+        TRADINGVIEW_SESSION_ID_SIGN=${TRADINGVIEW_SESSION_ID_SIGN}
         TRADINGVIEW_COOKIES_FILE=/tmp/cookies.json
         EOF
 

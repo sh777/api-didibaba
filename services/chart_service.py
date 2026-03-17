@@ -6,9 +6,6 @@ Uses TradingView session cookies + Playwright to capture chart screenshots.
 import os
 import json
 import uuid
-import platform
-import requests
-from urllib3 import encode_multipart_formdata
 
 TRADINGVIEW_COOKIES_FILE = os.getenv("TRADINGVIEW_COOKIES_FILE", "/tmp/cookies.json")
 
@@ -20,42 +17,23 @@ CHART_ID_FABIO = "kZfQme6x"
 TV_BASE = "https://www.tradingview.com/chart"
 
 
-def get_session(force: bool = False) -> dict:
-    """Load TradingView session cookies, refreshing if needed."""
-    if not force:
-        try:
-            with open(TRADINGVIEW_COOKIES_FILE, "r") as f:
-                return json.load(f)
-        except FileNotFoundError:
-            pass
-    return _login()
+def get_session() -> dict:
+    """Load TradingView session cookies from env vars or cached file."""
+    sessionid = os.getenv("TRADINGVIEW_SESSION_ID")
+    sessionid_sign = os.getenv("TRADINGVIEW_SESSION_ID_SIGN")
 
+    if sessionid and sessionid_sign:
+        return {"sessionid": sessionid, "sessionid_sign": sessionid_sign}
 
-def _login() -> dict:
-    username = os.environ["TRADINGVIEW_USERNAME"]
-    password = os.environ["TRADINGVIEW_PASSWORD"]
-
-    payload = {"username": username, "password": password, "remember": "on"}
-    body, content_type = encode_multipart_formdata(payload)
-    user_agent = f"TWAPI/3.0 ({platform.system()}; {platform.version()}; {platform.release()})"
-
-    resp = requests.post(
-        "https://www.tradingview.com/accounts/signin/",
-        data=body,
-        headers={
-            "origin": "https://www.tradingview.com",
-            "User-Agent": user_agent,
-            "Content-Type": content_type,
-            "referer": "https://www.tradingview.com",
-        },
-    )
-    if "error" in resp.text:
-        raise RuntimeError(f"TradingView login failed: {resp.text}")
-
-    cookies = resp.cookies.get_dict()
-    with open(TRADINGVIEW_COOKIES_FILE, "w") as f:
-        json.dump(cookies, f)
-    return cookies
+    # Fallback: load from cached file
+    try:
+        with open(TRADINGVIEW_COOKIES_FILE, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise RuntimeError(
+            "No TradingView session found. "
+            "Set TRADINGVIEW_SESSION_ID and TRADINGVIEW_SESSION_ID_SIGN env vars."
+        )
 
 
 def capture_chart(
@@ -74,7 +52,6 @@ def capture_chart(
     from playwright.sync_api import sync_playwright
 
     cookies = get_session()
-
     url = f"{TV_BASE}/{chart_id}/?symbol={symbol}&interval={interval}"
     path = f"/tmp/chart_{uuid.uuid4().hex[:8]}.png"
 
