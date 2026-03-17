@@ -69,12 +69,12 @@ def capture_chart(
         ])
 
         page = context.new_page()
-        page.goto(url, wait_until="networkidle", timeout=60000)
+        page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
         # Wait for chart canvas + fonts to fully render
-        page.wait_for_selector("canvas", timeout=20000)
+        page.wait_for_selector("canvas", timeout=30000)
         page.evaluate("() => document.fonts.ready")
-        page.wait_for_timeout(6000)  # extra settle time for indicators
+        page.wait_for_timeout(8000)  # settle time for indicators & labels
 
         page.screenshot(path=path, clip={"x": 0, "y": 0, "width": width, "height": height})
         browser.close()
