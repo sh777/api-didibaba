@@ -69,11 +69,10 @@ jobs:
           curl -sf http://localhost:8000/health && echo "api-didibaba healthy" \
             || (docker logs api-didibaba --tail 20; exit 1)
 
-          # Find nginx container (port 80, not 8000)
-          NGINX_CTR=$(docker ps --format '{{.Names}}' | while read n; do
-            docker port "$n" 2>/dev/null | grep -q ":80 ->" && echo "$n" && break || true
-          done) || true
+          # Find nginx container (port 80) — docker ps Ports format: "0.0.0.0:80->80/tcp"
+          NGINX_CTR=$(docker ps --format '{{.Names}} {{.Ports}}' | grep '0\.0\.0\.0:80->' | awk '{print $1}' | head -1) || true
           echo "nginx container: $NGINX_CTR"
+          docker ps --format 'table {{.Names}}\t{{.Ports}}' || true
 
           if [ -n "$NGINX_CTR" ]; then
             HOST_GW=$(docker network inspect bridge --format='{{range .IPAM.Config}}{{.Gateway}}{{end}}' 2>/dev/null || echo "172.17.0.1")
