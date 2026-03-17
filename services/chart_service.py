@@ -10,12 +10,12 @@ import threading
 
 TRADINGVIEW_COOKIES_FILE = os.getenv("TRADINGVIEW_COOKIES_FILE", "/tmp/cookies.json")
 
-# Default chart layout IDs (TradingView saved layouts)
+# Default chart layout ID (TradingView saved layout)
 CHART_ID_DEFAULT = "Pmtyn6fy"
 
 TV_BASE = "https://www.tradingview.com/chart"
 
-# Global lock: TradingView rejects concurrent sessions with the same cookie
+# Serialize requests within this process
 _chart_lock = threading.Lock()
 
 
@@ -27,7 +27,6 @@ def get_session() -> dict:
     if sessionid and sessionid_sign:
         return {"sessionid": sessionid, "sessionid_sign": sessionid_sign}
 
-    # Fallback: load from cached file
     try:
         with open(TRADINGVIEW_COOKIES_FILE, "r") as f:
             return json.load(f)
@@ -36,6 +35,43 @@ def get_session() -> dict:
             "No TradingView session found. "
             "Set TRADINGVIEW_SESSION_ID and TRADINGVIEW_SESSION_ID_SIGN env vars."
         )
+
+
+def _load_chart(page, url: str, width: int, height: int) -> None:
+    """Load TradingView chart and wait for full render, retrying on disconnect errors."""
+    for attempt in range(3):
+        if attempt == 0:
+            page.goto(url, wait_until="load", timeout=60000)
+        else:
+            page.reload(wait_until="load", timeout=60000)
+
+        # Wait for canvas
+        page.wait_for_selector("canvas", timeout=30000)
+
+        # Wait for multiple canvases (main chart + price axis)
+        try:
+            page.wait_for_function(
+                "() => document.querySelectorAll('canvas').length >= 2",
+                timeout=15000,
+            )
+        except Exception:
+            pass
+
+        # Check for "Something went wrong" error dialog
+        page.wait_for_timeout(4000)
+        reconnect = page.locator("button:has-text('Reconnect')")
+        if reconnect.count() > 0:
+            reconnect.first.click()
+            page.wait_for_timeout(3000)
+            # Will retry on next iteration
+            continue
+
+        # No error — wait for canvas text to fully render then done
+        page.wait_for_timeout(8000)
+        return
+
+    # After 3 attempts still erroring — take screenshot anyway (may be partial)
+    page.wait_for_timeout(5000)
 
 
 def capture_chart(
@@ -47,7 +83,6 @@ def capture_chart(
 ) -> str:
     """
     Capture a TradingView chart screenshot using Playwright + session cookies.
-    Serialized via a global lock to prevent TradingView session conflicts.
 
     Returns:
         Path to the saved PNG file in /tmp.
@@ -66,28 +101,13 @@ def capture_chart(
             )
             context = browser.new_context(viewport={"width": width, "height": height})
 
-            # Inject TradingView session cookies
             context.add_cookies([
                 {"name": k, "value": v, "domain": ".tradingview.com", "path": "/"}
                 for k, v in cookies.items()
             ])
 
             page = context.new_page()
-            page.goto(url, wait_until="load", timeout=60000)
-
-            # Wait for chart canvas to appear
-            page.wait_for_selector("canvas", timeout=30000)
-
-            # Wait for multiple canvases (price axis + chart area)
-            try:
-                page.wait_for_function(
-                    """() => document.querySelectorAll('canvas').length >= 2""",
-                    timeout=15000,
-                )
-            except Exception:
-                pass
-
-            page.wait_for_timeout(10000)  # let all canvas text render
+            _load_chart(page, url, width, height)
 
             page.screenshot(path=path, clip={"x": 0, "y": 0, "width": width, "height": height})
             browser.close()
