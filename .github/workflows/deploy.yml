@@ -42,15 +42,29 @@ jobs:
     - name: Deploy on server
       run: |
         export SSHPASS="$ECS_ROOT_PASSWORD"
-        sshpass -e ssh -o StrictHostKeyChecking=no ${{ env.ECS_USER }}@${{ env.ECS_HOST }} bash << REMOTE
+        sshpass -e ssh -o StrictHostKeyChecking=no ${{ env.ECS_USER }}@${{ env.ECS_HOST }} bash << 'REMOTE'
         set -e
 
         echo "⚙️ Writing .env..."
-        cat > /opt/api-didibaba/.env <<EOF
-        TRADINGVIEW_SESSION_ID=${TRADINGVIEW_SESSION_ID}
-        TRADINGVIEW_SESSION_ID_SIGN=${TRADINGVIEW_SESSION_ID_SIGN}
-        TRADINGVIEW_COOKIES_FILE=/tmp/cookies.json
-        EOF
+        cat > /opt/api-didibaba/.env << EOF
+TRADINGVIEW_SESSION_ID=${TRADINGVIEW_SESSION_ID}
+TRADINGVIEW_SESSION_ID_SIGN=${TRADINGVIEW_SESSION_ID_SIGN}
+TRADINGVIEW_COOKIES_FILE=/tmp/cookies.json
+EOF
+
+        echo "🌐 Installing nginx + certbot if needed..."
+        if ! command -v nginx &> /dev/null; then
+          apt-get update -q
+          apt-get install -y nginx certbot python3-certbot-nginx
+        fi
+
+        echo "🐳 Installing Docker if needed..."
+        if ! command -v docker &> /dev/null; then
+          apt-get update -q
+          apt-get install -y docker.io
+          systemctl enable docker
+          systemctl start docker
+        fi
 
         echo "🛑 Stopping old container..."
         docker stop api-didibaba 2>/dev/null || true
@@ -65,7 +79,7 @@ jobs:
           --name api-didibaba \
           --restart unless-stopped \
           --env-file .env \
-          -p 8000:8000 \
+          -p 127.0.0.1:8000:8000 \
           api-didibaba
 
         echo "⏳ Waiting for startup..."
@@ -74,5 +88,32 @@ jobs:
         echo "🧪 Health check..."
         curl -sf http://localhost:8000/health && echo "✅ Healthy!" || echo "⚠️ Health check failed"
 
-        echo "✅ Done!"
+        echo "🌐 Configuring nginx..."
+        cat > /etc/nginx/sites-available/api-didibaba << 'NGINX'
+server {
+    listen 80;
+    server_name api.didibaba.ai;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+}
+NGINX
+
+        ln -sf /etc/nginx/sites-available/api-didibaba /etc/nginx/sites-enabled/api-didibaba
+        nginx -t && systemctl reload nginx
+
+        echo "🔒 Setting up SSL..."
+        certbot --nginx -d api.didibaba.ai \
+          --non-interactive --agree-tos \
+          -m admin@didibaba.ai \
+          --redirect \
+          2>&1 && echo "✅ SSL configured!" || echo "⚠️ SSL skipped (DNS not ready?)"
+
+        echo "✅ Deploy complete! https://api.didibaba.ai/health"
         REMOTE
