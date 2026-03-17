@@ -17,22 +17,48 @@ logger = logging.getLogger(__name__)
 TRADINGVIEW_COOKIES_FILE = os.getenv("TRADINGVIEW_COOKIES_FILE", "/tmp/cookies.json")
 CHART_ID_DEFAULT = "Pmtyn6fy"
 TV_BASE = "https://www.tradingview.com/chart"
-POOL_SIZE = int(os.getenv("BROWSER_POOL_SIZE", "3"))
+POOL_SIZE = int(os.getenv("BROWSER_POOL_SIZE", "1"))
 
 
-def get_session() -> dict:
-    """Load TradingView session cookies from env vars or cached file."""
+def get_sessions() -> list[dict]:
+    """
+    Load TradingView session list from env vars.
+
+    Priority:
+    1. TRADINGVIEW_SESSIONS=id1:sign1,id2:sign2,...  (multi-session)
+    2. TRADINGVIEW_SESSION_ID + TRADINGVIEW_SESSION_ID_SIGN (single session)
+    3. TRADINGVIEW_COOKIES_FILE (legacy JSON file)
+
+    Pool size is automatically set to the number of sessions.
+    """
+    multi = os.getenv("TRADINGVIEW_SESSIONS", "").strip()
+    if multi:
+        sessions = []
+        for entry in multi.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            parts = entry.split(":", 1)
+            if len(parts) != 2:
+                logger.warning(f"Skipping malformed session entry: {entry!r}")
+                continue
+            sessions.append({"sessionid": parts[0], "sessionid_sign": parts[1]})
+        if sessions:
+            logger.info(f"Loaded {len(sessions)} TradingView sessions from TRADINGVIEW_SESSIONS")
+            return sessions
+
     sessionid = os.getenv("TRADINGVIEW_SESSION_ID")
     sessionid_sign = os.getenv("TRADINGVIEW_SESSION_ID_SIGN")
     if sessionid and sessionid_sign:
-        return {"sessionid": sessionid, "sessionid_sign": sessionid_sign}
+        return [{"sessionid": sessionid, "sessionid_sign": sessionid_sign}]
+
     try:
         with open(TRADINGVIEW_COOKIES_FILE, "r") as f:
-            return json.load(f)
+            return [json.load(f)]
     except FileNotFoundError:
         raise RuntimeError(
             "No TradingView session found. "
-            "Set TRADINGVIEW_SESSION_ID and TRADINGVIEW_SESSION_ID_SIGN env vars."
+            "Set TRADINGVIEW_SESSIONS or TRADINGVIEW_SESSION_ID env vars."
         )
 
 
@@ -53,12 +79,16 @@ class BrowserPool:
     async def start(self):
         """
         Initialize the pool. Called once at app startup.
-        Browser launches immediately; page warm-up runs in background
-        so /health responds right away.
+        Pool size = number of sessions in TRADINGVIEW_SESSIONS (or BROWSER_POOL_SIZE fallback).
+        Pages are seeded immediately (bare); warm-up runs in background.
         """
         from playwright.async_api import async_playwright
 
-        self._cookies = get_session()
+        sessions = get_sessions()
+        # If multi-session, pool size = session count; otherwise use BROWSER_POOL_SIZE
+        effective_size = len(sessions) if len(sessions) > 1 else self._size
+        self._sessions = sessions
+
         self._playwright = await async_playwright().start()
         self._browser = await self._playwright.chromium.launch(
             headless=True,
@@ -66,21 +96,19 @@ class BrowserPool:
         )
 
         self._queue = asyncio.Queue()
-
-        # Seed queue with bare (not warm) pages immediately so health check passes
-        for _ in range(self._size):
-            page = await self._make_page(warm=False)
+        for i in range(effective_size):
+            # Round-robin assign session to each page
+            cookies = sessions[i % len(sessions)]
+            page = await self._make_page(cookies=cookies, warm=False)
             await self._queue.put(page)
 
-        logger.info(f"BrowserPool: {self._size} pages ready (warming up in background)")
-
-        # Warm up in background — doesn't block startup
+        logger.info(f"BrowserPool: {effective_size} pages ready ({len(sessions)} session(s)), warming up...")
         asyncio.create_task(self._warm_all())
 
     async def _warm_all(self):
         """Navigate all pooled pages to TradingView in background."""
         pages = []
-        for _ in range(self._size):
+        while not self._queue.empty():
             pages.append(await self._queue.get())
 
         for i, page in enumerate(pages):
@@ -92,13 +120,13 @@ class BrowserPool:
                 )
                 await page.wait_for_selector("canvas", timeout=30000)
                 await page.wait_for_timeout(3000)
-                logger.info(f"BrowserPool: page {i + 1}/{self._size} warmed")
+                logger.info(f"BrowserPool: page {i + 1}/{len(pages)} warmed")
             except Exception as e:
                 logger.warning(f"BrowserPool: warm page {i + 1} failed (non-fatal): {e}")
             finally:
                 await self._queue.put(page)
 
-        logger.info(f"BrowserPool: all {self._size} pages warmed")
+        logger.info(f"BrowserPool: all {len(pages)} pages warmed")
 
     async def stop(self):
         """Cleanup on app shutdown."""
@@ -108,14 +136,14 @@ class BrowserPool:
             await self._playwright.stop()
         logger.info("BrowserPool stopped")
 
-    async def _make_page(self, warm: bool = False):
-        """Create a new page with TradingView cookies. Optionally pre-warm."""
+    async def _make_page(self, cookies: dict, warm: bool = False):
+        """Create a new page with given TradingView cookies. Optionally pre-warm."""
         context = await self._browser.new_context(
             viewport={"width": 1920, "height": 1080}
         )
         await context.add_cookies([
             {"name": k, "value": v, "domain": ".tradingview.com", "path": "/"}
-            for k, v in self._cookies.items()
+            for k, v in cookies.items()
         ])
         page = await context.new_page()
 
@@ -144,7 +172,7 @@ class BrowserPool:
             if page.is_closed():
                 logger.warning("BrowserPool: page crashed, replacing...")
                 try:
-                    new_page = await self._make_page(warm=False)
+                    new_page = await self._make_page(cookies=self._sessions[0], warm=False)
                     await self._queue.put(new_page)
                 except Exception as e:
                     logger.error(f"BrowserPool: failed to replace page: {e}")
