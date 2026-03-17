@@ -21,32 +21,28 @@ jobs:
         export-env: true
       env:
         OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+        ECS_ROOT_PASSWORD: op://didibaba.ai/api-didibaba/ECS_ROOT_PASSWORD
         TRADINGVIEW_SESSION_ID: op://didibaba.ai/api-didibaba/TRADINGVIEW_SESSION_ID
         TRADINGVIEW_SESSION_ID_SIGN: op://didibaba.ai/api-didibaba/TRADINGVIEW_SESSION_ID_SIGN
-        ECS_SSH_KEY: op://didibaba.ai/api-didibaba/ECS_SSH_KEY
 
-    - name: Setup SSH key
-      run: |
-        mkdir -p ~/.ssh
-        printf '%s\n' "$ECS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H $ECS_HOST >> ~/.ssh/known_hosts
-        wc -l ~/.ssh/id_rsa
-        ssh-keygen -l -f ~/.ssh/id_rsa 2>&1 || echo "key validation failed"
+    - name: Install sshpass
+      run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
 
     - name: Sync code to server
       run: |
-        rsync -az --delete \
+        export SSHPASS="$ECS_ROOT_PASSWORD"
+        sshpass -e rsync -az --delete \
           --exclude='.git' \
           --exclude='__pycache__' \
           --exclude='*.pyc' \
           --exclude='.env' \
-          -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
+          -e "ssh -o StrictHostKeyChecking=no" \
           ./ ${{ env.ECS_USER }}@${{ env.ECS_HOST }}:/opt/api-didibaba/
 
     - name: Deploy on server
       run: |
-        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ env.ECS_USER }}@${{ env.ECS_HOST }} bash << REMOTE
+        export SSHPASS="$ECS_ROOT_PASSWORD"
+        sshpass -e ssh -o StrictHostKeyChecking=no ${{ env.ECS_USER }}@${{ env.ECS_HOST }} bash << REMOTE
         set -e
 
         echo "⚙️ Writing .env..."
@@ -55,14 +51,6 @@ jobs:
         TRADINGVIEW_SESSION_ID_SIGN=${TRADINGVIEW_SESSION_ID_SIGN}
         TRADINGVIEW_COOKIES_FILE=/tmp/cookies.json
         EOF
-
-        echo "🐳 Installing Docker if needed..."
-        if ! command -v docker &> /dev/null; then
-          apt-get update -q
-          apt-get install -y docker.io
-          systemctl enable docker
-          systemctl start docker
-        fi
 
         echo "🛑 Stopping old container..."
         docker stop api-didibaba 2>/dev/null || true
