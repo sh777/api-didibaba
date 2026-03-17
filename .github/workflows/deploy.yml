@@ -75,8 +75,12 @@ jobs:
           docker ps --format 'table {{.Names}}\t{{.Ports}}' || true
 
           if [ -n "$NGINX_CTR" ]; then
-            HOST_GW=$(docker network inspect bridge --format='{{range .IPAM.Config}}{{.Gateway}}{{end}}' 2>/dev/null || echo "172.17.0.1")
-            CONF="server { listen 80; server_name api.didibaba.ai; location / { proxy_pass http://${HOST_GW}:8000; proxy_set_header Host \$host; proxy_set_header X-Real-IP \$remote_addr; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto \$scheme; proxy_read_timeout 120s; } }"
+            # Connect api-didibaba to the same network as nginx so we can proxy by container name
+            NGINX_NET=$(docker inspect "$NGINX_CTR" --format='{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' | awk '{print $1}')
+            echo "nginx network: $NGINX_NET"
+            docker network connect "$NGINX_NET" api-didibaba 2>/dev/null || true
+
+            CONF="server { listen 80; server_name api.didibaba.ai; location / { proxy_pass http://api-didibaba:8000; proxy_set_header Host \$host; proxy_set_header X-Real-IP \$remote_addr; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto \$scheme; proxy_read_timeout 120s; } }"
             docker exec "$NGINX_CTR" sh -c "printf '%s\n' '$CONF' > /etc/nginx/conf.d/api-didibaba.conf && nginx -t && nginx -s reload"
             echo "nginx reloaded"
           else
