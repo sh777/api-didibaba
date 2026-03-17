@@ -81,6 +81,26 @@ def normalize(symbol: str) -> str:
         cryptos = _load_crypto_symbols()
         if clean in cryptos:
             return f"BINANCE:{clean}USD"
+        # US stock — query TradingView symbol search to resolve the correct exchange
+        exchange = _resolve_us_exchange(clean)
+        return f"{exchange}:{clean}"
 
     # Return as-is and let TradingView decide
     return upper
+
+
+def _resolve_us_exchange(symbol: str) -> str:
+    """Look up exchange for a US stock symbol via TradingView symbol search."""
+    try:
+        resp = requests.get(
+            "https://symbol-search.tradingview.com/symbol_search/",
+            params={"text": symbol, "hl": "1", "exchange": "", "lang": "en", "type": "stock", "domain": "production"},
+            timeout=5,
+        )
+        data = resp.json()
+        for item in data:
+            if item.get("symbol", "").upper() == symbol.upper():
+                return item.get("exchange", "NASDAQ")
+    except Exception:
+        pass
+    return "NASDAQ"
