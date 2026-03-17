@@ -5,7 +5,7 @@
 import os
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
-from services.chart_service import capture_chart, CHART_ID_DEFAULT
+from services.chart_service import capture_chart_async, CHART_ID_DEFAULT
 from utils.symbol import normalize
 
 router = APIRouter()
@@ -23,7 +23,7 @@ VALID_INTERVALS = {"1m", "5m", "15m", "30m", "1h", "2h", "4h", "1D", "1W", "1M"}
         500: {"description": "Chart generation failed"},
     },
 )
-def get_chart_image(
+async def get_chart_image(
     symbol: str = Query(..., description="Ticker symbol, e.g. AAPL, 000001, BTC"),
     interval: str = Query("1D", description="Chart interval: 1m 5m 15m 30m 1h 4h 1D 1W 1M"),
     chart_id: str = Query(None, description="TradingView chart layout ID, e.g. Pmtyn6fy"),
@@ -42,7 +42,7 @@ def get_chart_image(
         chart_id = CHART_ID_DEFAULT
 
     try:
-        path = capture_chart(
+        path = await capture_chart_async(
             symbol=tv_symbol,
             chart_id=chart_id,
             interval=interval,
