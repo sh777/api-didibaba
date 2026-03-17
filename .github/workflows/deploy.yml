@@ -71,8 +71,8 @@ jobs:
 
           # Find nginx container (port 80, not 8000)
           NGINX_CTR=$(docker ps --format '{{.Names}}' | while read n; do
-            docker port "$n" 2>/dev/null | grep -q ":80 ->" && echo "$n" && break
-          done)
+            docker port "$n" 2>/dev/null | grep -q ":80 ->" && echo "$n" && break || true
+          done) || true
           echo "nginx container: $NGINX_CTR"
 
           if [ -n "$NGINX_CTR" ]; then
