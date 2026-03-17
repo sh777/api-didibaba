@@ -17,29 +17,28 @@ jobs:
         export-env: true
       env:
         OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        SSH_PRIVATE_KEY: op://didibaba.ai/api-didibaba/SSH_PRIVATE_KEY
+        SSH_ROOT_PASSWORD: op://didibaba.ai/api-didibaba/SSH_ROOT_PASSWORD
         TRADINGVIEW_USERNAME: op://didibaba.ai/api-didibaba/TRADINGVIEW_USERNAME
         TRADINGVIEW_PASSWORD: op://didibaba.ai/api-didibaba/TRADINGVIEW_PASSWORD
 
-    - name: Setup SSH key
-      run: |
-        mkdir -p ~/.ssh
-        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H 45.77.30.170 >> ~/.ssh/known_hosts
+    - name: Install sshpass
+      run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
 
     - name: Sync code to server
       run: |
-        rsync -az --delete \
+        export SSHPASS="$SSH_ROOT_PASSWORD"
+        sshpass -e rsync -az --delete \
           --exclude='.git' \
           --exclude='__pycache__' \
           --exclude='*.pyc' \
           --exclude='.env' \
+          -e "ssh -o StrictHostKeyChecking=no" \
           ./ root@45.77.30.170:/opt/api-didibaba/
 
     - name: Deploy on server
       run: |
-        ssh root@45.77.30.170 bash << REMOTE
+        export SSHPASS="$SSH_ROOT_PASSWORD"
+        sshpass -e ssh -o StrictHostKeyChecking=no root@45.77.30.170 bash << REMOTE
         set -e
 
         echo "⚙️ Writing .env..."
