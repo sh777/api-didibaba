@@ -17,9 +17,9 @@ jobs:
         export-env: true
       env:
         OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        SSH_ROOT_PASSWORD: op://didibaba.ai/api-didibaba/SSH_ROOT_PASSWORD
-        TRADINGVIEW_SESSION_ID: op://didibaba.ai/api-didibaba/TRADINGVIEW_SESSION_ID
-        TRADINGVIEW_SESSION_ID_SIGN: op://didibaba.ai/api-didibaba/TRADINGVIEW_SESSION_ID_SIGN
+        SSH_ROOT_PASSWORD: op://didibaba.ai/api-didibaba.ai/SSH_ROOT_PASSWORD
+        TRADINGVIEW_SESSION_ID: op://didibaba.ai/api-didibaba.ai/TRADINGVIEW_SESSION_ID
+        TRADINGVIEW_SESSION_ID_SIGN: op://didibaba.ai/api-didibaba.ai/TRADINGVIEW_SESSION_ID_SIGN
 
     - name: Install sshpass
       run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
