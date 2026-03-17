@@ -43,7 +43,7 @@ jobs:
       run: |
         export SSHPASS="$ECS_ROOT_PASSWORD"
         sshpass -e ssh -o StrictHostKeyChecking=no ${{ env.ECS_USER }}@${{ env.ECS_HOST }} \
-          "mkdir -p /opt/api-didibaba && printf 'TRADINGVIEW_SESSION_ID=%s\nTRADINGVIEW_SESSION_ID_SIGN=%s\nTRADINGVIEW_COOKIES_FILE=/tmp/cookies.json\n' \
+          "mkdir -p /opt/api-didibaba && printf 'TRADINGVIEW_SESSION_ID=%s\nTRADINGVIEW_SESSION_ID_SIGN=%s\nTRADINGVIEW_COOKIES_FILE=/tmp/cookies.json\nBROWSER_POOL_SIZE=1\n' \
           '${{ env.TRADINGVIEW_SESSION_ID }}' '${{ env.TRADINGVIEW_SESSION_ID_SIGN }}' \
           > /opt/api-didibaba/.env"
 
