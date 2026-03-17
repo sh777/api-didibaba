@@ -227,35 +227,21 @@ class BrowserPool:
             # Short settle wait for rendering
             await page.wait_for_timeout(3000)
 
-            # Hide TradingView top navigation bar (header with user avatar etc.)
+            # Hide TradingView top toolbar (.layout__area--top is stable, no hash suffix)
             await page.evaluate("""
                 () => {
-                    const selectors = [
-                        'header',
-                        '[class*="header-"]',
-                        '[id*="header"]',
-                        'div[data-name="header"]',
-                        '.tv-header',
-                        '#tv-header',
-                    ];
-                    for (const sel of selectors) {
-                        document.querySelectorAll(sel).forEach(el => {
-                            el.style.setProperty('display', 'none', 'important');
-                        });
-                    }
+                    const el = document.querySelector('.layout__area--top');
+                    if (el) el.style.setProperty('display', 'none', 'important');
                 }
             """)
 
-            # Get actual header height to clip it out (fallback: 0)
-            header_height = await page.evaluate("""
+            # Measure how tall the hidden toolbar was (usually 38px), clip it out
+            top_offset = await page.evaluate("""
                 () => {
-                    const header = document.querySelector('header') ||
-                                   document.querySelector('[class*="header-"]') ||
-                                   document.querySelector('[data-name="header"]');
-                    return header ? header.getBoundingClientRect().height : 0;
+                    const el = document.querySelector('.layout__area--top');
+                    return el ? Math.ceil(el.getBoundingClientRect().height) : 0;
                 }
-            """)
-            top_offset = int(header_height) if header_height else 0
+            """) or 0
 
             await page.screenshot(
                 path=path,
