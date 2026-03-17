@@ -10,105 +10,104 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Create deployment package
+    - uses: 1password/load-secrets-action@v2
+      with:
+        export-env: true
+      env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+        SSH_PRIVATE_KEY: op://didibaba.ai/api-didibaba/SSH_PRIVATE_KEY
+        TRADINGVIEW_USERNAME: op://didibaba.ai/api-didibaba/TRADINGVIEW_USERNAME
+        TRADINGVIEW_PASSWORD: op://didibaba.ai/api-didibaba/TRADINGVIEW_PASSWORD
+
+    - name: Setup SSH key
       run: |
-        tar -czf deployment.tar.gz \
+        mkdir -p ~/.ssh
+        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H 45.77.30.170 >> ~/.ssh/known_hosts
+
+    - name: Sync code to server
+      run: |
+        rsync -az --delete \
           --exclude='.git' \
           --exclude='__pycache__' \
           --exclude='*.pyc' \
           --exclude='.env' \
-          .
+          ./ root@45.77.30.170:/opt/api-didibaba/
 
-    - name: Copy to server
-      uses: appleboy/scp-action@v0.1.4
-      with:
-        host: 45.77.30.170
-        username: root
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        source: "deployment.tar.gz"
-        target: "/tmp/"
+    - name: Deploy on server
+      run: |
+        ssh root@45.77.30.170 bash << REMOTE
+        set -e
 
-    - name: Deploy with Docker
-      uses: appleboy/ssh-action@v0.1.5
-      with:
-        host: 45.77.30.170
-        username: root
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          echo "📦 Extracting files..."
-          mkdir -p /opt/api-didibaba
-          cd /opt/api-didibaba
-          tar -xzf /tmp/deployment.tar.gz
-          rm /tmp/deployment.tar.gz
+        echo "⚙️ Writing .env..."
+        cat > /opt/api-didibaba/.env <<EOF
+        TRADINGVIEW_USERNAME=${TRADINGVIEW_USERNAME}
+        TRADINGVIEW_PASSWORD=${TRADINGVIEW_PASSWORD}
+        TRADINGVIEW_COOKIES_FILE=/tmp/cookies.json
+        EOF
 
-          echo "⚙️ Writing .env..."
-          cat > .env <<EOF
-          TRADINGVIEW_USERNAME=${{ secrets.TRADINGVIEW_USERNAME }}
-          TRADINGVIEW_PASSWORD=${{ secrets.TRADINGVIEW_PASSWORD }}
-          TRADINGVIEW_COOKIES_FILE=/tmp/cookies.json
-          EOF
+        echo "🐳 Installing Docker if needed..."
+        if ! command -v docker &> /dev/null; then
+          apt-get update -q
+          apt-get install -y docker.io
+          systemctl enable docker
+          systemctl start docker
+        fi
 
-          echo "🐳 Installing Docker if needed..."
-          if ! command -v docker &> /dev/null; then
-            apt-get update -q
-            apt-get install -y docker.io
-            systemctl enable docker
-            systemctl start docker
-          fi
+        echo "🌐 Installing nginx if needed..."
+        if ! command -v nginx &> /dev/null; then
+          apt-get update -q
+          apt-get install -y nginx certbot python3-certbot-nginx
+        fi
 
-          echo "🛑 Stopping old container..."
-          docker stop api-didibaba 2>/dev/null || true
-          docker rm api-didibaba 2>/dev/null || true
+        echo "🛑 Stopping old container..."
+        docker stop api-didibaba 2>/dev/null || true
+        docker rm api-didibaba 2>/dev/null || true
 
-          echo "🔨 Building image..."
-          docker build -t api-didibaba .
+        echo "🔨 Building image..."
+        cd /opt/api-didibaba
+        docker build -t api-didibaba .
 
-          echo "🚀 Starting container..."
-          docker run -d \
-            --name api-didibaba \
-            --restart unless-stopped \
-            --env-file .env \
-            -p 8000:8000 \
-            api-didibaba
+        echo "🚀 Starting container..."
+        docker run -d \
+          --name api-didibaba \
+          --restart unless-stopped \
+          --env-file .env \
+          -p 8000:8000 \
+          api-didibaba
 
-          echo "⏳ Waiting for startup..."
-          sleep 5
+        echo "⏳ Waiting for startup..."
+        sleep 5
 
-          echo "🧪 Health check..."
-          curl -sf http://localhost:8000/health && echo "✅ Healthy!" || echo "⚠️ Health check failed"
+        echo "🧪 Health check..."
+        curl -sf http://localhost:8000/health && echo "✅ Healthy!" || echo "⚠️ Health check failed"
 
-          docker ps | grep api-didibaba
+        echo "🌐 Configuring nginx..."
+        cat > /etc/nginx/sites-available/api-didibaba <<'NGINX'
+        server {
+            listen 80;
+            server_name api.didibaba.ai;
 
-          echo "🌐 Configuring nginx..."
-          if ! command -v nginx &> /dev/null; then
-            apt-get update -q
-            apt-get install -y nginx certbot python3-certbot-nginx
-          fi
+            location / {
+                proxy_pass http://127.0.0.1:8000;
+                proxy_set_header Host \$host;
+                proxy_set_header X-Real-IP \$remote_addr;
+                proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto \$scheme;
+            }
+        }
+        NGINX
 
-          cat > /etc/nginx/sites-available/api-didibaba <<'NGINX'
-          server {
-              listen 80;
-              server_name api.didibaba.ai;
+        ln -sf /etc/nginx/sites-available/api-didibaba /etc/nginx/sites-enabled/api-didibaba
+        nginx -t && systemctl reload nginx || systemctl start nginx
 
-              location / {
-                  proxy_pass http://127.0.0.1:8000;
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                  proxy_set_header X-Forwarded-Proto $scheme;
-              }
-          }
-          NGINX
+        echo "🔒 Setting up SSL..."
+        certbot --nginx -d api.didibaba.ai --non-interactive --agree-tos -m admin@didibaba.ai --redirect 2>/dev/null \
+          && echo "✅ SSL configured!" \
+          || echo "⚠️ SSL skipped (DNS may not be ready yet)"
 
-          ln -sf /etc/nginx/sites-available/api-didibaba /etc/nginx/sites-enabled/api-didibaba
-          nginx -t && systemctl reload nginx || systemctl start nginx
-
-          echo "🔒 Setting up SSL..."
-          certbot --nginx -d api.didibaba.ai --non-interactive --agree-tos -m admin@didibaba.ai --redirect 2>/dev/null \
-            && echo "✅ SSL configured!" \
-            || echo "⚠️ SSL skipped (DNS may not be ready yet)"
-
-          echo "✅ Done! https://api.didibaba.ai/health"
+        echo "✅ Done! https://api.didibaba.ai/health"
+        REMOTE
