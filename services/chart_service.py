@@ -248,6 +248,18 @@ class BrowserPool:
                 clip={"x": 0, "y": top_offset, "width": width, "height": height - top_offset},
             )
 
+        # Crop out the OHLC info bar at the top (canvas-rendered, ~40px, contains
+        # "Logged in as" and "Active layout" watermark text)
+        try:
+            from PIL import Image
+            img = Image.open(path)
+            img_w, img_h = img.size
+            crop_top = 40  # height of the OHLC/status bar
+            cropped = img.crop((0, crop_top, img_w, img_h))
+            cropped.save(path)
+        except Exception as e:
+            logger.warning(f"PIL crop failed (non-fatal): {e}")
+
         return path
 
 

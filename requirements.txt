@@ -5,3 +5,4 @@ urllib3>=2.0.0
 python-multipart>=0.0.9
 playwright>=1.43.0
 aiofiles>=23.0.0
+Pillow>=10.0.0
