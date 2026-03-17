@@ -16,14 +16,10 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Start browser pool on startup, stop on shutdown."""
-    from services.chart_service import get_pool
-    pool = get_pool()
-    logger.info("Starting browser pool...")
-    await pool.start()
+    """App lifespan — no persistent resources needed (chart-img API is stateless)."""
+    logger.info("api-didibaba started (chart-img mode)")
     yield
-    logger.info("Stopping browser pool...")
-    await pool.stop()
+    logger.info("api-didibaba stopped")
 
 
 app = FastAPI(
