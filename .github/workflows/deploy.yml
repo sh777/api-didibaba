@@ -27,7 +27,7 @@ jobs:
       with:
         host: 45.77.30.170
         username: root
-        key: ${{ secrets.ECS_SSH_KEY }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
         source: "deployment.tar.gz"
         target: "/tmp/"
 
@@ -36,7 +36,7 @@ jobs:
       with:
         host: 45.77.30.170
         username: root
-        key: ${{ secrets.ECS_SSH_KEY }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           echo "📦 Extracting files..."
           mkdir -p /opt/api-didibaba
