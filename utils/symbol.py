@@ -1,10 +1,9 @@
 """
 Symbol normalization utilities.
-Converts user-supplied ticker strings to TradingView / chart-img format.
+Converts user-supplied ticker strings to TradingView format.
 """
 
 import requests
-from services.chart_service import is_exchange_symbol
 
 # Hard-coded overrides
 _SYMBOL_OVERRIDES = {
@@ -51,7 +50,7 @@ def normalize(symbol: str) -> str:
       - Chinese A-share codes (6xxxxx → SSE, 0xxxxx/3xxxxx → SZSE)
       - HK codes (≤5 digits)
       - US crypto symbols (checked against CoinGecko top-100)
-      - US stocks (NASDAQ → NYSE fallback via chart-img)
+      - US stocks (returned as-is for TradingView to resolve)
     """
     upper = symbol.upper().strip()
 
@@ -82,10 +81,6 @@ def normalize(symbol: str) -> str:
         cryptos = _load_crypto_symbols()
         if clean in cryptos:
             return f"BINANCE:{clean}USD"
-        if is_exchange_symbol("nasdaq", clean):
-            return f"NASDAQ:{clean}"
-        if is_exchange_symbol("nyse", clean):
-            return f"NYSE:{clean}"
 
-    # Return as-is and let chart-img decide
+    # Return as-is and let TradingView decide
     return upper

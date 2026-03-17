@@ -15,7 +15,7 @@ VALID_INTERVALS = {"1m", "5m", "15m", "30m", "1h", "2h", "4h", "1D", "1W", "1M"}
 
 @router.get(
     "/image",
-    summary="Generate a TradingView chart image",
+    summary="Generate a TradingView chart screenshot",
     response_class=FileResponse,
     responses={
         200: {"content": {"image/png": {}}, "description": "PNG chart image"},
@@ -31,7 +31,10 @@ def get_chart_image(
     height: int = Query(1080, ge=300, le=2160, description="Image height in pixels"),
 ):
     if interval not in VALID_INTERVALS:
-        raise HTTPException(status_code=400, detail=f"Invalid interval. Choose from: {', '.join(sorted(VALID_INTERVALS))}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid interval. Choose from: {', '.join(sorted(VALID_INTERVALS))}",
+        )
 
     chart_id_map = {
         "default": CHART_ID_DEFAULT,
@@ -40,7 +43,6 @@ def get_chart_image(
     }
     chart_id = chart_id_map.get(chart_type, CHART_ID_DEFAULT)
 
-    # Auto-select BTC chart if symbol looks like BTC
     tv_symbol = normalize(symbol)
     if "BTC" in tv_symbol.upper() and chart_type == "default":
         chart_id = CHART_ID_BTC
