@@ -46,7 +46,6 @@ jobs:
 
           echo "⚙️ Writing .env..."
           cat > .env <<EOF
-          CHART_IMG_API_KEY=${{ secrets.CHART_IMG_API_KEY }}
           TRADINGVIEW_USERNAME=${{ secrets.TRADINGVIEW_USERNAME }}
           TRADINGVIEW_PASSWORD=${{ secrets.TRADINGVIEW_PASSWORD }}
           TRADINGVIEW_COOKIES_FILE=/tmp/cookies.json
