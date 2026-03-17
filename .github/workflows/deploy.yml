@@ -39,33 +39,24 @@ jobs:
           -e "ssh -o StrictHostKeyChecking=no" \
           ./ ${{ env.ECS_USER }}@${{ env.ECS_HOST }}:/opt/api-didibaba/
 
+    - name: Write .env to server
+      run: |
+        export SSHPASS="$ECS_ROOT_PASSWORD"
+        sshpass -e ssh -o StrictHostKeyChecking=no ${{ env.ECS_USER }}@${{ env.ECS_HOST }} \
+          "mkdir -p /opt/api-didibaba && cat > /opt/api-didibaba/.env" << ENVEOF
+        TRADINGVIEW_SESSION_ID=${{ env.TRADINGVIEW_SESSION_ID }}
+        TRADINGVIEW_SESSION_ID_SIGN=${{ env.TRADINGVIEW_SESSION_ID_SIGN }}
+        TRADINGVIEW_COOKIES_FILE=/tmp/cookies.json
+        ENVEOF
+
     - name: Deploy on server
       env:
         SSHPASS: ${{ env.ECS_ROOT_PASSWORD }}
       run: |
-        sshpass -e ssh -o StrictHostKeyChecking=no ${{ env.ECS_USER }}@${{ env.ECS_HOST }} /bin/bash -s << 'EOF'
+        sshpass -e ssh -o StrictHostKeyChecking=no ${{ env.ECS_USER }}@${{ env.ECS_HOST }} << 'SSHEOF'
         set -e
 
-        # Write .env
-        mkdir -p /opt/api-didibaba
-        cat > /opt/api-didibaba/.env <<ENVFILE
-        TRADINGVIEW_SESSION_ID=$TRADINGVIEW_SESSION_ID
-        TRADINGVIEW_SESSION_ID_SIGN=$TRADINGVIEW_SESSION_ID_SIGN
-        TRADINGVIEW_COOKIES_FILE=/tmp/cookies.json
-        ENVFILE
-
-        # Install nginx if needed
-        if ! command -v nginx &>/dev/null; then
-          apt-get update -q && apt-get install -y nginx certbot python3-certbot-nginx
-        fi
-
-        # Install Docker if needed
-        if ! command -v docker &>/dev/null; then
-          apt-get update -q && apt-get install -y docker.io
-          systemctl enable docker && systemctl start docker
-        fi
-
-        # Rebuild and restart container
+        # Rebuild and restart api-didibaba container
         docker stop api-didibaba 2>/dev/null || true
         docker rm api-didibaba 2>/dev/null || true
         cd /opt/api-didibaba
@@ -74,39 +65,41 @@ jobs:
           --name api-didibaba \
           --restart unless-stopped \
           --env-file .env \
-          -p 127.0.0.1:8000:8000 \
+          -p 8000:8000 \
           api-didibaba
 
         sleep 5
-        curl -sf http://localhost:8000/health && echo " Healthy!" || echo "Health check failed"
+        curl -sf http://localhost:8000/health && echo "✅ api-didibaba healthy!" || (echo "❌ Health check failed"; docker logs api-didibaba --tail 20; exit 1)
 
-        # Configure nginx
-        cat > /etc/nginx/sites-available/api-didibaba <<NGINXCONF
+        # Inject api.didibaba.ai config into existing nginx container (ai-stock-analyzer)
+        NGINX_CONTAINER=$(docker ps --format '{{.Names}}' | xargs -I{} sh -c 'docker port {} 2>/dev/null | grep -q "0.0.0.0:80" && echo {}' | head -1)
+        echo "Found nginx container: $NGINX_CONTAINER"
+
+        if [ -n "$NGINX_CONTAINER" ]; then
+          HOST_GW=$(docker network inspect bridge --format='{{range .IPAM.Config}}{{.Gateway}}{{end}}' 2>/dev/null || echo "172.17.0.1")
+          echo "Docker bridge gateway: $HOST_GW"
+
+          docker exec "$NGINX_CONTAINER" sh -c "
+            cat > /etc/nginx/conf.d/api-didibaba.conf << 'NGINXEOF'
         server {
             listen 80;
             server_name api.didibaba.ai;
             location / {
-                proxy_pass http://127.0.0.1:8000;
+                proxy_pass http://${HOST_GW}:8000;
                 proxy_set_header Host \$host;
                 proxy_set_header X-Real-IP \$remote_addr;
                 proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
                 proxy_set_header X-Forwarded-Proto \$scheme;
                 proxy_read_timeout 120s;
+                proxy_connect_timeout 10s;
             }
         }
-        NGINXCONF
+        NGINXEOF
+            nginx -t && nginx -s reload && echo '✅ nginx config updated'
+          "
+        else
+          echo "⚠️ No nginx container found on port 80 — skipping nginx config injection"
+        fi
 
-        ln -sf /etc/nginx/sites-available/api-didibaba /etc/nginx/sites-enabled/api-didibaba
-        rm -f /etc/nginx/sites-enabled/default
-        nginx -t && (systemctl reload nginx 2>/dev/null || systemctl start nginx) \
-          || (journalctl -xeu nginx.service --no-pager -n 20; ss -tlnp | grep ':80'; exit 1)
-
-        # SSL
-        certbot --nginx -d api.didibaba.ai \
-          --non-interactive --agree-tos \
-          -m admin@didibaba.ai --redirect 2>&1 \
-          && echo "SSL configured!" \
-          || echo "SSL skipped (DNS not ready?)"
-
-        echo "Deploy complete!"
-        EOF
+        echo "🚀 Deploy complete!"
+        SSHEOF
