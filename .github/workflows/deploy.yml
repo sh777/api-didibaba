@@ -28,13 +28,11 @@ jobs:
     - name: Setup SSH key
       run: |
         mkdir -p ~/.ssh
-        printf '%s' "$ECS_SSH_KEY" > ~/.ssh/id_rsa
+        printf '%s\n' "$ECS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H $ECS_HOST >> ~/.ssh/known_hosts
-        # debug: line count and first/last line
         wc -l ~/.ssh/id_rsa
-        head -1 ~/.ssh/id_rsa || true
-        tail -1 ~/.ssh/id_rsa || true
+        ssh-keygen -l -f ~/.ssh/id_rsa 2>&1 || echo "key validation failed"
 
     - name: Sync code to server
       run: |
