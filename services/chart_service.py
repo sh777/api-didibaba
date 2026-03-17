@@ -239,6 +239,17 @@ class BrowserPool:
                     clip={"x": 0, "y": 0, "width": width, "height": height},
                 )
 
+        # Crop out the "Logged in as / Active layout" text that TradingView
+        # renders directly onto the chart canvas (top ~32px, not removable via CSS)
+        try:
+            from PIL import Image
+            img = Image.open(path)
+            img_w, img_h = img.size
+            cropped = img.crop((0, 32, img_w, img_h))
+            cropped.save(path)
+        except Exception as e:
+            logger.warning(f"PIL crop failed (non-fatal): {e}")
+
         return path
 
 
