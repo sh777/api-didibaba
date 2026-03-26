@@ -14,9 +14,9 @@ jobs:
       ECS_HOST: 45.77.30.170
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
 
-    - uses: 1password/load-secrets-action@v2
+    - uses: 1password/load-secrets-action@581a835fb51b8e7ec56b71cf2ffddd7e68bb25e0  # v2
       with:
         export-env: true
       env:
