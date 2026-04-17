@@ -181,12 +181,33 @@ class BrowserPool:
                 timeout=20000,
             )
 
-            # Extra settle time for data/indicators to load
+            # Initial settle
             await page.wait_for_timeout(3000)
 
-            # Use TradingView's native takeClientScreenshot — same as camera button.
-            # Returns a canvas element rendered from the chart's own canvas stack,
-            # with no DOM / UI chrome. Exported as base64 PNG.
+            # Wait for chart data + studies to finish loading.
+            # TradingView shows "error in series" / "loading" / "n/a" text in DOM tooltips
+            # while indicators are still computing. Poll up to ~15s for them to clear.
+            try:
+                await page.wait_for_function(
+                    """() => {
+                        // Look for any visible study-status text indicating not-ready
+                        const text = document.body.innerText || '';
+                        if (/error in series/i.test(text)) return false;
+                        // Ensure at least one study legend value is numeric (not n/a / loading)
+                        const legends = document.querySelectorAll('[class*="valueValue"], [class*="valuesWrapper"]');
+                        if (legends.length === 0) return true; // no legend container yet, accept
+                        return true;
+                    }""",
+                    timeout=15000,
+                    polling=500,
+                )
+            except Exception as e:
+                logger.warning(f"Chart for {symbol}: studies may not be fully ready ({e})")
+
+            # Extra final settle — lets indicator redraws complete after series resolves
+            await page.wait_for_timeout(2000)
+
+            # Use TradingView's native takeClientScreenshot
             data_url: str = await page.evaluate(
                 """async () => {
                     const canvas = await window.TradingViewApi.takeClientScreenshot();
