@@ -164,7 +164,10 @@ class BrowserPool:
         width: int = 1920,
         height: int = 1080,
     ) -> str:
-        url = f"{TV_BASE}/{chart_id}/?symbol={symbol}&interval={interval}"
+        # Load the chart WITHOUT symbol param first (use default), then switch via API.
+        # This avoids the race where initial paint uses default symbol and studies
+        # get stuck on "error in series" when a fast URL-param switch happens.
+        url = f"{TV_BASE}/{chart_id}/"
         path = f"/tmp/chart_{uuid.uuid4().hex[:8]}.png"
 
         async with self._acquire() as page:
@@ -175,39 +178,36 @@ class BrowserPool:
             await page.goto(url, wait_until="load", timeout=60000)
             await page.wait_for_selector("canvas", timeout=30000)
 
-            # Wait for TradingViewApi to be ready
             await page.wait_for_function(
-                "() => typeof window.TradingViewApi?.takeClientScreenshot === 'function'",
+                "() => typeof window.TradingViewApi?.takeClientScreenshot === 'function' && typeof window.TradingViewApi?.activeChart === 'function'",
                 timeout=20000,
             )
+            # Let the default chart fully load first
+            await page.wait_for_timeout(2500)
 
-            # Initial settle
-            await page.wait_for_timeout(3000)
+            # Now switch symbol + interval via the official widget API and wait for series.
+            # onDataLoaded() fires once after the new series has been painted.
+            await page.evaluate(
+                """async ({symbol, interval}) => {
+                    const chart = window.TradingViewApi.activeChart();
+                    await new Promise((resolve) => {
+                        let done = false;
+                        const finish = () => { if (!done) { done = true; resolve(); } };
+                        try {
+                            chart.onDataLoaded().subscribe(null, finish);
+                        } catch (_) {}
+                        // Safety timeout so we always resolve
+                        setTimeout(finish, 12000);
+                        chart.setSymbol(symbol, interval, () => {});
+                    });
+                }""",
+                {"symbol": symbol, "interval": interval},
+            )
 
-            # Wait for chart data + studies to finish loading.
-            # TradingView shows "error in series" / "loading" / "n/a" text in DOM tooltips
-            # while indicators are still computing. Poll up to ~15s for them to clear.
-            try:
-                await page.wait_for_function(
-                    """() => {
-                        // Look for any visible study-status text indicating not-ready
-                        const text = document.body.innerText || '';
-                        if (/error in series/i.test(text)) return false;
-                        // Ensure at least one study legend value is numeric (not n/a / loading)
-                        const legends = document.querySelectorAll('[class*="valueValue"], [class*="valuesWrapper"]');
-                        if (legends.length === 0) return true; // no legend container yet, accept
-                        return true;
-                    }""",
-                    timeout=15000,
-                    polling=500,
-                )
-            except Exception as e:
-                logger.warning(f"Chart for {symbol}: studies may not be fully ready ({e})")
+            # Extra settle for study recomputation after the new series arrives
+            await page.wait_for_timeout(3500)
 
-            # Extra final settle — lets indicator redraws complete after series resolves
-            await page.wait_for_timeout(2000)
-
-            # Use TradingView's native takeClientScreenshot
+            # Native clean screenshot
             data_url: str = await page.evaluate(
                 """async () => {
                     const canvas = await window.TradingViewApi.takeClientScreenshot();
